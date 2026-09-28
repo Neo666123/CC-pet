@@ -26,6 +26,19 @@ foreach ($p in $proxyPorts) {
     } catch {}
 }
 
+# 清理旧的 win-unpacked 临时解压目录（防止 EBUSY 占用锁定）
+$unpacked = Join-Path $ScriptDir "dist\win-unpacked"
+if (Test-Path $unpacked) {
+    for ($i = 0; $i -lt 5; $i++) {
+        try {
+            Remove-Item -LiteralPath $unpacked -Recurse -Force -ErrorAction Stop
+            break
+        } catch {
+            Start-Sleep -Milliseconds 400
+        }
+    }
+}
+
 Write-Host ""
 Write-Host "[1/2] 正在调用 electron-builder 打包 Windows 版本..." -ForegroundColor Cyan
 Write-Host "      (通常需要 30 秒 ~ 1 分钟，请稍候)..." -ForegroundColor Gray

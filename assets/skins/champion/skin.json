@@ -1,0 +1,30 @@
+{
+  "id": "champion",
+  "name": "小天体",
+  "size": { "width": 192, "height": 208 },
+  "states": {
+    "idle": "champion-idle.gif",
+    "working": ["champion-working.gif", "champion-working-2.gif", "champion-working-3.gif", "champion-working-4.gif"],
+    "thinking": "champion-thinking.gif",
+    "talking": "champion-talking.gif",
+    "juggling": "champion-juggling.gif",
+    "sweeping": "champion-sweeping.gif",
+    "waiting": "champion-waiting.gif",
+    "needsinput": "champion-needsinput.gif",
+    "attention": "champion-needsinput.gif",
+    "error": "champion-error.gif",
+    "fatal": "champion-error-fatal.gif",
+    "sad": "champion-error.gif",
+    "loafing": "champion-loafing.gif",
+    "sorry": "champion-error.gif",
+    "puzzled": "champion-thinking.gif",
+    "happy": "champion-celebrating.gif",
+    "loved": "champion-success.gif",
+    "excited": "champion-celebrating.gif",
+    "roam": "champion-idle.gif",
+    "lookout": "champion-idle.gif",
+    "sleeping": "champion-sleeping.gif",
+    "greet": "champion-success.gif"
+  },
+  "fallback": "idle"
+}

@@ -1,0 +1,31 @@
+@echo off
+chcp 936 >nul
+title CCPET 启动器
+
+echo ========================================================
+echo          CCPET 小天体桌宠与 Codex 代理 一键启动
+echo ========================================================
+echo.
+
+echo [1/2] 正在检查 Codex 代理 (cli-proxy-api.exe)...
+tasklist /fi "IMAGENAME eq cli-proxy-api.exe" 2>nul | find /i "cli-proxy-api.exe" >nul
+if not errorlevel 1 goto PROXY_RUNNING
+
+echo [*] 未检测到正在运行的 Codex 代理，正在启动代理...
+start "" /d "C:\Users\lenovo\Desktop\codex-gemini\CLIProxyAPI_7.3.17_windows_amd64" "启动代理..bat"
+ping 127.0.0.1 -n 3 >nul
+goto LAUNCH_PET
+
+:PROXY_RUNNING
+echo [v] Codex 代理已在后台运行中，无需重复启动。
+
+:LAUNCH_PET
+echo.
+echo [2/2] 正在启动小天体桌宠 (CCPET)...
+cd /d "D:\存储\LLMPET-main"
+start "" ".\node_modules\electron\dist\electron.exe" .
+
+echo.
+echo [OK] 启动指令已下达，窗口即将自动关闭...
+ping 127.0.0.1 -n 3 >nul
+exit /b 0

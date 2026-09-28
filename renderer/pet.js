@@ -245,7 +245,7 @@ window.playPetSound = function(soundPath, volume = 1.0) {
 
 let isFallingAsleep = false;
 let sleepLevel = 0; // 0: ����, 1: ��������Ƿ, 2: ����˯, 3: ����˯�߸Ǳ�
-let wakeLockUntil = Date.now() + 300000;
+let wakeLockUntil = Date.now() + 10000;
 window.setPetWakeLock = function(ms = 300000) {
   wakeLockUntil = Math.max(wakeLockUntil, Date.now() + ms);
 }; // ����˯����ʱ���������״��Ѻ󼸷���������������˯�ߣ�
@@ -4094,6 +4094,12 @@ function applyStats(s) {
   const isGlobalWorking = hasWorkingSession || (s.workingCount > 0) || (s.jugglingCount > 0);
   const isGlobalJuggling = (s.jugglingCount > 0) || allSessions.some((x) => x && x.state === 'juggling');
 
+  // 睡眠保护
+  const isCurrentlySleeping = (state === 'sleeping' || isFallingAsleep || (skin === 'champion' && cc() && (cc().sleepLevel > 0 || cc().isFallingAsleep)));
+  if (isCurrentlySleeping && !isGlobalWorking && !isGlobalJuggling && s.waitingCount <= 0 && s.errorCount <= 0 && s.needsinputCount <= 0 && s.sweepingCount <= 0 && s.workingCount <= 0 && s.thinkingCount <= 0) {
+    return;
+  }
+
   if (isGlobalWorking) {
     setState(isGlobalJuggling ? 'juggling' : 'working');
   } else if (s.waitingCount > 0) {
@@ -5409,7 +5415,7 @@ function triggerMilestoneDialogue(amount, cfg) {
   const availableQuotes = pool.filter(q => !usedMilestoneQuotes[poolKey].includes(q));
   const rawQuote = (availableQuotes.length > 0)
     ? availableQuotes[Math.floor(Math.random() * availableQuotes.length)]
-    : (pool[Math.floor(Math.random() * pool.length)] || ('��ǰ������ ' + amount + ' Token��'));
+    : (pool[Math.floor(Math.random() * pool.length)] || '当前已消耗 {amount} Token！');
 
   if (!usedMilestoneQuotes[poolKey].includes(rawQuote)) {
     usedMilestoneQuotes[poolKey].push(rawQuote);

@@ -99,7 +99,8 @@ window.PET_CONFIG = {
       baseLoops: [
        //  { anim: 'wilson/drone_zap_remote_use_loop', weight: 6 },
       //  { anim: 'wilson/emoteXL_loop_dance0', weight: 3 },
-        { anim: 'wilson/build_loop_side', weight: 1 }
+        { anim: 'wilson/build_loop_side', weight: 1 },
+        { anim: 'wilson/build_loop_up', weight: 1 }
       ],
       danceLoops: [
         { anim: 'wilson/emoteXL_loop_dance0', weight: 3 },

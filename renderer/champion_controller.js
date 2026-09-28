@@ -110,6 +110,31 @@
 
         this.app.stage.addChild(this.pet);
 
+        // 绑定动作结束监听：只要播放 wakeup，无论如何下一动作必须死锁切入 idle！
+        try {
+          if (this.pet.state && typeof this.pet.state.addListener === "function") {
+            this.pet.state.addListener({
+              complete: (entry) => {
+                if (entry && entry.animation && entry.animation.name && entry.animation.name.includes("wakeup")) {
+                  const idleAnim = this.hasAnim("wilson/acting_idle1") ? "wilson/acting_idle1" : "wilson/acting_idle1";
+                  this.currentBaseLoopAnim = idleAnim;
+                  this.currentTriggerState = "idle";
+                  this.sleepLevel = 0;
+                  this.isFallingAsleep = false;
+                  this.isAnimLocked = false;
+                  try {
+                    this.pet.state.setAnimation(0, idleAnim, true);
+                  } catch (e) {}
+                  this.wakeLockUntil = Date.now() + 300000;
+                  if (typeof window.setState === "function") window.setState("idle");
+                  if (typeof window.setPetWakeLock === "function") window.setPetWakeLock(300000);
+                  this.scheduleNextOneShot("idle");
+                }
+              }
+            });
+          }
+        } catch (e) {}
+
         this.isSpineReady = true;
         this.isLoading = false;
 
@@ -282,7 +307,22 @@
       if (this.isRageDead) return;
 
       this.checkWorkingFatigue(s);
-      if (this.currentTriggerState === s && !forceEnter) return;
+      if (s === 'working' || s === 'juggling' || s === 'thinking') {
+        this.isAnimLocked = false;
+      }
+      if (this.currentTriggerState === s && !forceEnter) {
+        const curTrack = this.pet && this.pet.state ? this.pet.state.getCurrent(0) : null;
+        const curAnimName = curTrack && curTrack.animation ? curTrack.animation.name : '';
+        if ((s === 'working' || s === 'juggling') && (curAnimName.includes('idle') || curAnimName.includes('buck'))) {
+          this.resumeToBaseLoop();
+        }
+        return;
+      }
+
+      // 睡眠保护：正在睡眠时，空闲待机 idle 绝不准打断覆盖睡眠！
+      if ((this.sleepLevel > 0 || this.isFallingAsleep || this.currentTriggerState === "sleeping") && s === "idle" && !forceEnter) {
+        return;
+      }
       this.currentTriggerState = s;
 
       if (this.oneShotTimer) { clearTimeout(this.oneShotTimer); this.oneShotTimer = null; }
@@ -525,28 +565,29 @@
         return;
       }
 
-      // 睡眠中轻戳：嘟囔一声不叫醒
+      // 睡眠中轻戳：唤醒并死锁切入待机 idle
       if (this.sleepLevel > 0 || this.isFallingAsleep) {
         this.clearSleepTimers();
         this.isFallingAsleep = false;
-        const wasDeepSleep = (this.sleepLevel === 3);
         this.sleepLevel = 0;
         this.wakeLockUntil = Date.now() + 300000;
         if (typeof window.setPetWakeLock === "function") window.setPetWakeLock(300000);
+
+        this.currentTriggerState = "idle";
+        const idleCfg = this.getTriggerConfig("idle");
+        const idleAnim = this.pickBaseLoop(idleCfg) || "wilson/acting_idle1";
+        this.currentBaseLoopAnim = idleAnim;
+        if (typeof window.setState === "function") window.setState("idle");
+
         try {
-          const wakeAnim = this.hasAnim("wilson/wakeup") ? "wilson/wakeup" : "wilson/acting_idle1";
-          if (wasDeepSleep) {
-            this.pet.state.setAnimation(0, wakeAnim, false);
-            this.pet.state.addAnimation(0, this.currentBaseLoopAnim, true, 0);
-          } else {
-            this.pet.state.setAnimation(0, this.currentBaseLoopAnim, true);
-          }
+          const wakeAnim = this.hasAnim("wilson/wakeup") ? "wilson/wakeup" : idleAnim;
+          this.pet.state.setAnimation(0, wakeAnim, false);
+          this.pet.state.addAnimation(0, idleAnim, true, 0);
           this.isAnimLocked = true;
           setTimeout(() => { this.isAnimLocked = false; }, 2600);
         } catch (e) {}
         if (typeof window.playPetSound === "function") window.playPetSound("assets/sounds/champion/yawning.wav");
         if (typeof window.showPetBubble === "function") window.showPetBubble("哈啊……醒了醒了！随时听候差遣！", 2800, true);
-        this.currentTriggerState = "idle";
         this.scheduleNextOneShot("idle");
         return;
       }
@@ -711,22 +752,32 @@
       this.isRageDead = false;
       this.rageClickTimestamps = [];
       this.pokeClickTimestamps = [];
+      this.clearSleepTimers();
+      this.sleepLevel = 0;
+      this.isFallingAsleep = false;
+      this.currentTriggerState = "idle";
+      const idleCfg = this.getTriggerConfig("idle");
+      const idleAnim = this.pickBaseLoop(idleCfg) || "wilson/acting_idle1";
+      this.currentBaseLoopAnim = idleAnim;
+      if (typeof window.setState === "function") window.setState("idle");
+      if (typeof window.setPetWakeLock === "function") window.setPetWakeLock(300000);
+      this.wakeLockUntil = Date.now() + 300000;
+
       try {
-        const wakeAnim = this.hasAnim("wilson/wakeup") ? "wilson/wakeup" : "wilson/acting_idle1";
+        const wakeAnim = this.hasAnim("wilson/wakeup") ? "wilson/wakeup" : idleAnim;
         this.pet.state.setAnimation(0, wakeAnim, false);
-        this.pet.state.addAnimation(0, this.currentBaseLoopAnim, true, 0);
+        this.pet.state.addAnimation(0, idleAnim, true, 0);
         this.isAnimLocked = true;
         setTimeout(() => { this.isAnimLocked = false; }, 3200);
       } catch (e) {}
 
-      if (typeof window.playPetSound === 'function') {
-        window.playPetSound('assets/sounds/champion/yawning.wav');
+      if (typeof window.playPetSound === "function") {
+        window.playPetSound("assets/sounds/champion/yawning.wav");
       }
-      if (typeof window.showPetBubble === 'function') {
-        window.showPetBubble('啊呀！我又满血复活了！', 3200, true);
+      if (typeof window.showPetBubble === "function") {
+        window.showPetBubble("啊呀！我又满血复活了！", 3200, true);
       }
-      this.currentTriggerState = 'idle';
-      this.scheduleNextOneShot('idle');
+      this.scheduleNextOneShot("idle");
     },
 
     // 睡眠三阶段被打退
@@ -741,7 +792,6 @@
       const hitAnim = this.hasAnim("wilson/hit_11111000") ? "wilson/hit_11111000" : "wilson/corpse_hit";
       const drowsyAnim = this.hasAnim("wilson/emote_sleepy") ? "wilson/emote_sleepy" : (this.hasAnim("wilson/emote_yawn") ? "wilson/emote_yawn" : "wilson/acting_idle1");
       const wakeAnim = this.hasAnim("wilson/wakeup") ? "wilson/wakeup" : "wilson/acting_idle1";
-      const wasDeepSleep = (this.sleepLevel === 3);
 
       try {
         this.pet.state.setAnimation(0, hitAnim, false);
@@ -756,15 +806,23 @@
         if (typeof window.showPetBubble === "function") window.showPetBubble("唔……别碰我，还没睡够呢……", 2200, true);
       }
 
-      // 第二步：迷糊片刻（约 2.2 秒后），自动揉眼睛伸懒腰苏醒（“过一会才醒来”）
+      // 第二步：迷糊片刻（约 2.2 秒后），自动揉眼睛伸懒腰苏醒，并且【必须】播放 wakeup 且紧接 idle！
       const wakeTimer = setTimeout(() => {
+        this.clearSleepTimers();
+        this.sleepLevel = 0;
+        this.isFallingAsleep = false;
+        this.currentTriggerState = "idle";
+        const idleCfg = this.getTriggerConfig("idle");
+        const idleAnim = this.pickBaseLoop(idleCfg) || "wilson/acting_idle1";
+        this.currentBaseLoopAnim = idleAnim;
+        if (typeof window.setState === "function") window.setState("idle");
+        if (typeof window.setPetWakeLock === "function") window.setPetWakeLock(300000);
+        this.wakeLockUntil = Date.now() + 300000;
+
         try {
-          if (wasDeepSleep) {
-            this.pet.state.setAnimation(0, wakeAnim, false);
-            this.pet.state.addAnimation(0, this.currentBaseLoopAnim, true, 0);
-          } else {
-            this.pet.state.setAnimation(0, this.currentBaseLoopAnim, true);
-          }
+          this.pet.state.setAnimation(0, wakeAnim, false);
+          // 只要是播放了 wake up 就必须接 idle！绝不排队睡眠动画！
+          this.pet.state.addAnimation(0, idleAnim, true, 0);
         } catch (e) {}
 
         if (typeof window.playPetSound === "function") window.playPetSound("assets/sounds/champion/yawning.wav");
@@ -772,9 +830,7 @@
 
         // 第三步：苏醒完成，恢复完全清醒待命
         setTimeout(() => {
-          this.sleepLevel = 0;
           this.isAnimLocked = false;
-          this.currentTriggerState = "idle";
           this.resumeToBaseLoop();
           this.scheduleNextOneShot("idle");
         }, 2600);

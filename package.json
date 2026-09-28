@@ -37,7 +37,10 @@
       ".claude/skills/register-generated-program/**",
       "scripts/register-generated-program.js",
       "shared/**",
-      "hook/**"
+      "hook/**",
+      "tools/**",
+      "*.bat",
+      "launch.ps1"
     ],
     "win": {
       "target": [
@@ -45,7 +48,7 @@
         "zip"
       ],
       "icon": "assets/icon.ico",
-      "artifactName": "CCPet--Windows-."
+      "artifactName": "${productName}-${version}-Windows-${arch}.${ext}"
     },
     "nsis": {
       "oneClick": false,

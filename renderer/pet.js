@@ -1816,15 +1816,7 @@ function createSessRow() {
   const row = document.createElement('div');
   row.className = 'sl-row';
   row.innerHTML =
-    '<span class="sl-dot"></span>' +
-    '<span class="sl-icon"></span>' +
-    '<div class="sl-main"><div class="sl-name"></div><div class="sl-meta-line"><div class="sl-meta"></div><button class="sl-session-id"></button></div></div>' +
-    '<span class="sl-ctx hidden"></span>' +
-    '<button class="sl-travel-entry">??</button>' +
-    '<span class="sl-actions">' +
-    '<button class="sl-action pin">��</button>' +
-    '<button class="sl-action dismiss" title="����/�رմ˻Ự">?</button>' +
-    '</span>';
+    '<span class="sl-dot"></span><span class="sl-icon"></span><div class="sl-main"><div class="sl-name"></div><div class="sl-meta-line"><div class="sl-meta"></div><button class="sl-session-id"></button></div></div><span class="sl-ctx hidden"></span><button class="sl-travel-entry">🧭</button><span class="sl-actions"><button class="sl-action pin">★</button><button class="sl-action dismiss" title="归档此会话">✕</button></span>';
   row._parts = {
     dot: row.querySelector('.sl-dot'),
     icon: row.querySelector('.sl-icon'),
@@ -1890,12 +1882,12 @@ function createSessRow() {
 
 function shortSessionId(id) {
   const value = String(id || '');
-  return value.length > 16 ? `${value.slice(0, 8)}��${value.slice(-4)}` : value;
+  return value.length > 16 ? `${value.slice(0, 8)}…${value.slice(-4)}` : value;
 }
 
 function updateSessionIdButton(button, id) {
   button.classList.toggle('hidden', !id);
-  button.textContent = id ? `ID ${shortSessionId(id)} ?` : '';
+  button.textContent = id ? `ID ${shortSessionId(id)} 📋` : '';
   button.title = id ? `${id}\n${t('sess.copyId')}` : '';
 }
 
@@ -1939,6 +1931,7 @@ function updateSessRow(row, session) {
     parts.travel.classList.toggle('hidden', !sessionActionAllowed(session, 'travel'));
     parts.travel.title = t('travel.entryTitle');
   }
+  if (parts.dismiss) { parts.dismiss.title = t('sess.archive') || '归档此会话'; }
   if (parts.pin) {
     parts.pin.className = `sl-action pin${pinned ? ' active' : ''}`;
     parts.pin.title = t(pinned ? 'sess.unpin' : 'sess.pin');

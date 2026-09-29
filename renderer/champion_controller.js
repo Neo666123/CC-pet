@@ -1200,7 +1200,7 @@
 
       if (!this.hatSprite) {
         this.hatSprite = PIXI.Sprite.from(resolvedUrl);
-        this.hatSprite.anchor.set(0.5, 0.85);
+        this.hatSprite.anchor.set(0.5, 0.5);
         this.pet.addChild(this.hatSprite);
       } else {
         this.hatSprite.texture = PIXI.Texture.from(resolvedUrl);
@@ -1234,15 +1234,26 @@
     updateHatTransform() {
       if (!this.hatSprite || !this.hatSprite.visible || !this.pet || !this.pet.skeleton) return;
       const sk = this.pet.skeleton;
+      // 优先获取头发中心骨骼 hair-1，若无则取 hat-1
       const bone = sk.findBone("hat-1-internal") || sk.findBone("hat-1") || sk.findBone("head-1-internal");
       if (!bone) return;
-      this.hatSprite.x = bone.worldX;
-      this.hatSprite.y = bone.worldY;
-      this.hatSprite.rotation = bone.getWorldRotationX() * (Math.PI / 180);
+
+      const rotRad = bone.getWorldRotationX() * (Math.PI / 180);
+      this.hatSprite.rotation = rotRad;
+
       const bScaleX = bone.getWorldScaleX();
       const bScaleY = bone.getWorldScaleY();
-      const baseHatScale = 0.38;
+      // 适度放大，让王冠更加有神威
+      const baseHatScale = 0.52;
       this.hatSprite.scale.set(bScaleX * baseHatScale, bScaleY * baseHatScale);
+
+      // 在骨骼旋转方向上，沿头顶法线向上推 88 像素（正好从胸口下巴移动到小天体额头/眼睛上方）
+      const liftDistance = 88;
+      // 骨骼世界坐标系中，沿骨骼垂直方向位移
+      const cos = Math.cos(rotRad);
+      const sin = Math.sin(rotRad);
+      this.hatSprite.x = bone.worldX + sin * liftDistance;
+      this.hatSprite.y = bone.worldY - cos * liftDistance;
     },
   };
 

@@ -192,7 +192,7 @@ function itemText(item) {
 function fileSessionId(fp, metaId) {
   if (metaId) return String(metaId);
   // rollout-2026-07-11T04-50-16-<uuid>.jsonl or ..._<page_uuid>.jsonl → 优先匹配主 session uuid
-  const m = /rollout-.*-([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(?:_[0-9a-f-]+)?\.jsonl$/i.exec(fp);
+  const m = /rollout-.*-([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(?:_[0-9a-f-]+)?\.jsonl$/i.exec(fp);
   return m ? m[1] : path.basename(fp, '.jsonl');
 }
 

@@ -3606,11 +3606,10 @@ bubbleDismiss.addEventListener('click', (e) => {
   endingMessages.clear();
   endingExpanded = false;
   hideBubble(true);
-  const nextSid = getActiveOrLatestSessionId();
-  if (nextSid && window.pet && typeof window.pet.focusSession === 'function') {
-    window.pet.focusSession(nextSid);
-  } else if (window.pet && typeof window.pet.primaryAction === 'function') {
-    window.pet.primaryAction();
+  // 仅当后台确实有正在思考/执行的任务时才联动跳转；无任务时纯粹关闭气泡，绝不跳转！
+  const runningSid = getRunningSessionId();
+  if (runningSid && window.pet && typeof window.pet.focusSession === 'function') {
+    window.pet.focusSession(runningSid);
   }
 });
 
@@ -4935,6 +4934,23 @@ setInterval(reportPetVisualBounds, 3000);
 
 let activeSessionCycleIdx = 0;
 
+// 获取后台正在思考/执行中的任务 ID（若无执行中任务则返回空字符串，绝不 fallback 到历史老会话）
+function getRunningSessionId() {
+  if (!lastStats || !Array.isArray(lastStats.sessions) || lastStats.sessions.length === 0) return '';
+  const pool = lastStats.sessions;
+  const BUSY_STATE_NAMES = ['working', 'thinking', 'juggling', 'sweeping', 'waiting', 'needsinput'];
+  const busySessions = pool.filter((s) => s && BUSY_STATE_NAMES.includes(s.state));
+  if (busySessions.length === 0) return '';
+  busySessions.sort((a, b) => {
+    const timeA = Math.max(a.updatedAt || 0, a.lastActivity || 0, a.createdAt || 0);
+    const timeB = Math.max(b.updatedAt || 0, b.lastActivity || 0, b.createdAt || 0);
+    return timeB - timeA;
+  });
+  const chosen = busySessions[activeSessionCycleIdx % busySessions.length];
+  activeSessionCycleIdx = (activeSessionCycleIdx + 1) % busySessions.length;
+  return chosen.id || chosen.sessionId || (chosen.meta && chosen.meta.id) || (typeof sessionKey === 'function' ? sessionKey(chosen) : '');
+}
+
 function getActiveOrLatestSessionId() {
   // 优先级 1：若当前结算完成气泡卡片正显示在屏幕上，精准定位至该卡片关联的会话！
   if (bubbleMode === 'ending' && endingMessages && endingMessages.size > 0) {
@@ -4943,37 +4959,26 @@ function getActiveOrLatestSessionId() {
       return entries[0].sessionId;
     }
   }
+  // 优先级 2：后台有正在思考/执行的任务时，轮转返回执行中的任务
+  const runningSid = getRunningSessionId();
+  if (runningSid) return runningSid;
+
+  // 优先级 3：完全没有正在执行的任务时，按真实更新时间从新到旧寻找最近有效会话（严格排除缺少时间戳的历史僵尸会话）
   if (!lastStats || !Array.isArray(lastStats.sessions) || lastStats.sessions.length === 0) return '';
-  const candidatePool = typeof isVisibleSession === 'function'
-    ? lastStats.sessions.filter(isVisibleSession)
-    : lastStats.sessions;
-  const pool = candidatePool.length > 0 ? candidatePool : lastStats.sessions;
+  const pool = lastStats.sessions;
+  const validSessions = pool.filter((s) => {
+    const t = Math.max(s.updatedAt || 0, s.lastActivity || 0, s.createdAt || 0);
+    return t > 0;
+  });
 
-  const BUSY_STATE_NAMES = ['working', 'thinking', 'juggling', 'sweeping', 'waiting', 'needsinput'];
-  const busySessions = pool.filter(s => s && BUSY_STATE_NAMES.includes(s.state));
-  if (busySessions.length > 0) {
-    busySessions.sort((a, b) => {
-      if (a.idleMs != null && b.idleMs != null && a.idleMs !== b.idleMs) {
-        return a.idleMs - b.idleMs;
-      }
-      return (b.updatedAt || 0) - (a.updatedAt || 0);
-    });
-    const chosen = busySessions[activeSessionCycleIdx % busySessions.length];
-    activeSessionCycleIdx = (activeSessionCycleIdx + 1) % busySessions.length;
-    return chosen.id || chosen.sessionId || (chosen.meta && chosen.meta.id) || (typeof sessionKey === 'function' ? sessionKey(chosen) : '');
-  }
-
-  const sorted = [...pool].sort((a, b) => {
-    if (a.idleMs != null && b.idleMs != null && a.idleMs !== b.idleMs) {
-      return a.idleMs - b.idleMs;
-    }
-    const timeA = Math.max(a.lastActivity || 0, a.updatedAt || 0, a.createdAt || 0);
-    const timeB = Math.max(b.lastActivity || 0, b.updatedAt || 0, b.createdAt || 0);
+  validSessions.sort((a, b) => {
+    const timeA = Math.max(a.updatedAt || 0, a.lastActivity || 0, a.createdAt || 0);
+    const timeB = Math.max(b.updatedAt || 0, b.lastActivity || 0, b.createdAt || 0);
     return timeB - timeA;
   });
 
-  if (sorted[0]) {
-    const chosen = sorted[0];
+  if (validSessions[0]) {
+    const chosen = validSessions[0];
     return chosen.id || chosen.sessionId || (chosen.meta && chosen.meta.id) || (typeof sessionKey === 'function' ? sessionKey(chosen) : '');
   }
   return '';

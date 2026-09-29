@@ -1558,7 +1558,14 @@ function registerIpc() {
   });
   let focusSessionCycleIdx = 0;
   ipcMain.on('focus-session', (_e, sessionId) => {
-    let session = (typeof sessionId === 'string' && sessionId.trim() && core) ? core.getSession(sessionId.trim()) : null;
+    const rawId = (typeof sessionId === 'string' && sessionId.trim()) ? sessionId.trim() : '';
+    const uuidMatch = /([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i.exec(rawId);
+    const targetUuid = uuidMatch ? uuidMatch[1] : rawId;
+
+    let session = targetUuid && core ? (core.getSession(targetUuid) || core.getSession(rawId)) : null;
+    if (!session && core && targetUuid) {
+      session = [...core.sessions.values()].find((s) => s.id === targetUuid || s.id === rawId || (s.transcriptPath && s.transcriptPath.includes(targetUuid))) || null;
+    }
     if (!session && core) {
       const sessions = [...core.sessions.values()].filter((s) => !s.headless && adapter.agentOf(s) === 'codex');
       const BUSY_STATE_NAMES = ['working', 'thinking', 'juggling', 'sweeping', 'waiting', 'needsinput'];
@@ -1567,16 +1574,13 @@ function registerIpc() {
         session = busySessions[focusSessionCycleIdx % busySessions.length];
         focusSessionCycleIdx = (focusSessionCycleIdx + 1) % busySessions.length;
       } else {
-        sessions.sort((a, b) => {
-          const order = { working: 0, juggling: 0, thinking: 1, waiting: 2, needsinput: 3, idle: 5, sleeping: 6 };
-          const scoreA = order[a.state] ?? 8;
-          const scoreB = order[b.state] ?? 8;
-          if (scoreA !== scoreB) return scoreA - scoreB;
-          const timeA = Math.max(a.lastActivity || 0, a.updatedAt || 0, a.createdAt || 0);
-          const timeB = Math.max(b.lastActivity || 0, b.updatedAt || 0, b.createdAt || 0);
+        const validSessions = sessions.filter((s) => Math.max(s.updatedAt || 0, s.lastActivity || 0, s.createdAt || 0) > 0);
+        validSessions.sort((a, b) => {
+          const timeA = Math.max(a.updatedAt || 0, a.lastActivity || 0, a.createdAt || 0);
+          const timeB = Math.max(b.updatedAt || 0, b.lastActivity || 0, b.createdAt || 0);
           return timeB - timeA;
         });
-        session = sessions[0] || [...core.sessions.values()][0] || null;
+        session = validSessions[0] || null;
       }
     }
     // Codex rollout 没有终端 pid；Desktop 会话必须通过官方

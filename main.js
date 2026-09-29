@@ -1556,20 +1556,28 @@ function registerIpc() {
     }
     permissions.decide(permId, behavior);
   });
+  let focusSessionCycleIdx = 0;
   ipcMain.on('focus-session', (_e, sessionId) => {
     let session = (typeof sessionId === 'string' && sessionId.trim() && core) ? core.getSession(sessionId.trim()) : null;
     if (!session && core) {
       const sessions = [...core.sessions.values()].filter((s) => !s.headless && adapter.agentOf(s) === 'codex');
-      sessions.sort((a, b) => {
-        const order = { working: 0, juggling: 0, thinking: 1, waiting: 2, needsinput: 3, idle: 5, sleeping: 6 };
-        const scoreA = order[a.state] ?? 8;
-        const scoreB = order[b.state] ?? 8;
-        if (scoreA !== scoreB) return scoreA - scoreB;
-        const timeA = Math.max(a.lastActivity || 0, a.updatedAt || 0, a.createdAt || 0);
-        const timeB = Math.max(b.lastActivity || 0, b.updatedAt || 0, b.createdAt || 0);
-        return timeB - timeA;
-      });
-      session = sessions[0] || [...core.sessions.values()][0] || null;
+      const BUSY_STATE_NAMES = ['working', 'thinking', 'juggling', 'sweeping', 'waiting', 'needsinput'];
+      const busySessions = sessions.filter((s) => BUSY_STATE_NAMES.includes(s.state)).sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+      if (busySessions.length > 0) {
+        session = busySessions[focusSessionCycleIdx % busySessions.length];
+        focusSessionCycleIdx = (focusSessionCycleIdx + 1) % busySessions.length;
+      } else {
+        sessions.sort((a, b) => {
+          const order = { working: 0, juggling: 0, thinking: 1, waiting: 2, needsinput: 3, idle: 5, sleeping: 6 };
+          const scoreA = order[a.state] ?? 8;
+          const scoreB = order[b.state] ?? 8;
+          if (scoreA !== scoreB) return scoreA - scoreB;
+          const timeA = Math.max(a.lastActivity || 0, a.updatedAt || 0, a.createdAt || 0);
+          const timeB = Math.max(b.lastActivity || 0, b.updatedAt || 0, b.createdAt || 0);
+          return timeB - timeA;
+        });
+        session = sessions[0] || [...core.sessions.values()][0] || null;
+      }
     }
     // Codex rollout 没有终端 pid；Desktop 会话必须通过官方
     // codex:// thread deep link 定位。否则“去 Codex 选择”按钮只会
@@ -1776,6 +1784,8 @@ function registerIpc() {
   //   • a focusable session exists  → focus the most relevant one
   //   • sessions exist but none focusable (no pid / closed / non-mac) → open panel
   //   • no sessions at all → launch a fresh CLI
+  let runningSessionIndex = 0;
+
   ipcMain.on('primary-action', async (e) => {
     const agent = senderAgent(e);
     const splits = splitAgents();
@@ -1791,8 +1801,23 @@ function registerIpc() {
       launcher({}).catch(() => {});
       return;
     }
+
+    const BUSY_STATE_NAMES = ['working', 'thinking', 'juggling', 'sweeping', 'waiting', 'needsinput'];
+    const busySessions = all
+      .filter((s) => !s.headless && BUSY_STATE_NAMES.includes(s.state))
+      .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+
+    if (busySessions.length > 0) {
+      const targetSession = busySessions[runningSessionIndex % busySessions.length];
+      runningSessionIndex = (runningSessionIndex + 1) % busySessions.length;
+      if (targetSession.agentId === 'codex') {
+        shell.openExternal(`codex://threads/${encodeURIComponent(targetSession.id)}`).catch(() => {});
+      }
+      if (await focusSession(targetSession)) return;
+    }
+
     const focusables = all
-      .filter((s) => !s.headless && s.sourcePid)
+      .filter((s) => !s.headless && (s.sourcePid || s.agentId === 'codex'))
       .sort((a, b) => {
         const sa = a.state === 'sleeping' ? 1 : 0;
         const sb = b.state === 'sleeping' ? 1 : 0;
@@ -1800,6 +1825,9 @@ function registerIpc() {
         return (b.updatedAt || 0) - (a.updatedAt || 0); // then most recent
       });
     for (const s of focusables) {
+      if (s.agentId === 'codex') {
+        shell.openExternal(`codex://threads/${encodeURIComponent(s.id)}`).catch(() => {});
+      }
       // eslint-disable-next-line no-await-in-loop
       if (await focusSession(s)) return;          // focused a real window → done
     }

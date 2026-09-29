@@ -140,9 +140,9 @@ window.PET_CONFIG = {
 },
 
     juggling: {
-      baseLoops: ['wilson/emote_swoon'],
+      baseLoops: ['wilson/mason_death_loop'],
       clickSwitchLoopChance: 0,
-      playOneShotOnEnter: false,
+      playOneShotOnEnter: true,
       oneShotInterval: [0, 0],
       comboChance: 0,
       comboCount: [1, 1],

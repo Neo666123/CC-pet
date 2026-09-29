@@ -1382,7 +1382,7 @@ let curTodosProj = '';
 let curSessions = [];
 let todoPopOpen = false;
 let lastTodoPopRenderSig = '';
-const TODO_ICON = { completed: '?', in_progress: '??', pending: '??' };
+const TODO_ICON = { completed: '✓', in_progress: '⏳', pending: '○' };
 
 // ��ǰ��Ҫ�㴦��������� choice����û������ waiting/needsinput �Ự
 function actionableItems() {
@@ -1445,7 +1445,7 @@ function renderTodoPop() {
     tpList.innerHTML = curTodos
       .map((t) => {
         const cls = t.status === 'completed' ? 'tp-row done' : t.status === 'in_progress' ? 'tp-row doing' : 'tp-row';
-        return `<div class="${cls}"><span class="ic">${TODO_ICON[t.status] || '??'}</span><span class="tx">${esc(t.content)}</span></div>`;
+        return `<div class="${cls}"><span class="ic">${TODO_ICON[t.status] || '•'}</span><span class="tx">${esc(t.content)}</span></div>`;
       })
       .join('');
   } else {
@@ -3282,7 +3282,7 @@ function confetti() {
   const r = el.getBoundingClientRect();
   const cx = r.left - sr.left + r.width / 2;
   const cy = r.top - sr.top + r.height * 0.35;
-  const emojis = ['??', '?', '?', '??', '??'];
+  const emojis = ['🎉', '✨', '⭐', '🎊', '💫'];
   for (let i = 0; i < 12; i++) {
     const s = document.createElement('span');
     s.className = 'confetti';
@@ -3357,13 +3357,19 @@ function clearEndingPresentation() {
   bubbleToggle.classList.add('hidden');
   bubbleToggle.setAttribute('aria-expanded', 'false');
   bubbleActivity.classList.add('hidden');
+  bubbleActivityIcon.classList.add('hidden');
   bubbleActivityIcon.textContent = '';
   bubbleActivityText.textContent = '';
 }
 
 function showEndingActivity(text, icon = '') {
   if (bubbleMode !== 'ending' || !endingMessages.size) return false;
-  bubbleActivityIcon.textContent = icon || '??';
+  bubbleActivityIcon.textContent = icon || '';
+  if (!icon) {
+    bubbleActivityIcon.classList.add('hidden');
+  } else {
+    bubbleActivityIcon.classList.remove('hidden');
+  }
   bubbleActivityText.textContent = String(text || '').trim() || t('tool.default');
   bubbleActivity.classList.remove('hidden');
   // This row is deliberately persistent until the next final answer replaces
@@ -3600,6 +3606,12 @@ bubbleDismiss.addEventListener('click', (e) => {
   endingMessages.clear();
   endingExpanded = false;
   hideBubble(true);
+  const nextSid = getActiveOrLatestSessionId();
+  if (nextSid && window.pet && typeof window.pet.focusSession === 'function') {
+    window.pet.focusSession(nextSid);
+  } else if (window.pet && typeof window.pet.primaryAction === 'function') {
+    window.pet.primaryAction();
+  }
 });
 
 bubble.addEventListener('click', (e) => {
@@ -3609,10 +3621,22 @@ bubble.addEventListener('click', (e) => {
     const targetSessionId = entries.length > 0 ? entries[0].sessionId : '';
     if (targetSessionId && window.pet && typeof window.pet.focusSession === 'function') {
       window.pet.focusSession(targetSessionId);
+      endingMessages.delete(entries[0].key || targetSessionId);
+      if (endingMessages.size === 0) {
+        endingExpanded = false;
+        hideBubble(true);
+      } else {
+        renderEndingBubble();
+      }
       return;
     }
   }
-  if (window.pet) {
+  const nextSid = getActiveOrLatestSessionId();
+  if (nextSid && window.pet && typeof window.pet.focusSession === 'function') {
+    window.pet.focusSession(nextSid);
+  } else if (window.pet && typeof window.pet.primaryAction === 'function') {
+    window.pet.primaryAction();
+  } else if (window.pet) {
     if (AGENT === 'codex' && typeof window.pet.launchCodex === 'function') {
       window.pet.launchCodex();
     } else if (AGENT === 'dsh' && typeof window.pet.launchDsh === 'function') {
@@ -3748,7 +3772,7 @@ window.pet.onEvent((ev) => {
         setState(ev.visualState === 'juggling' ? 'juggling' : 'working');
         playAction(ev.tool, ev.icon);
       }
-      showBubble(ev.detail, 3200, false, 'activity', ev.icon || '??');
+      showBubble(ev.detail, 3200, false, 'activity', ev.icon || '');
       break;
     }
     case 'say':
@@ -4909,6 +4933,8 @@ setInterval(reportPetVisualBounds, 3000);
 
 
 
+let activeSessionCycleIdx = 0;
+
 function getActiveOrLatestSessionId() {
   // 优先级 1：若当前结算完成气泡卡片正显示在屏幕上，精准定位至该卡片关联的会话！
   if (bubbleMode === 'ending' && endingMessages && endingMessages.size > 0) {
@@ -4923,14 +4949,18 @@ function getActiveOrLatestSessionId() {
     : lastStats.sessions;
   const pool = candidatePool.length > 0 ? candidatePool : lastStats.sessions;
 
-  const activeOrder = ['waiting', 'needsinput', 'working', 'juggling', 'thinking'];
-  for (const st of activeOrder) {
-    const matched = pool.filter(s => s && s.state === st);
-    if (matched.length > 0) {
-      matched.sort((a, b) => (a.idleMs || 0) - (b.idleMs || 0));
-      const chosen = matched[0];
-      return chosen.id || chosen.sessionId || (chosen.meta && chosen.meta.id) || (typeof sessionKey === 'function' ? sessionKey(chosen) : '');
-    }
+  const BUSY_STATE_NAMES = ['working', 'thinking', 'juggling', 'sweeping', 'waiting', 'needsinput'];
+  const busySessions = pool.filter(s => s && BUSY_STATE_NAMES.includes(s.state));
+  if (busySessions.length > 0) {
+    busySessions.sort((a, b) => {
+      if (a.idleMs != null && b.idleMs != null && a.idleMs !== b.idleMs) {
+        return a.idleMs - b.idleMs;
+      }
+      return (b.updatedAt || 0) - (a.updatedAt || 0);
+    });
+    const chosen = busySessions[activeSessionCycleIdx % busySessions.length];
+    activeSessionCycleIdx = (activeSessionCycleIdx + 1) % busySessions.length;
+    return chosen.id || chosen.sessionId || (chosen.meta && chosen.meta.id) || (typeof sessionKey === 'function' ? sessionKey(chosen) : '');
   }
 
   const sorted = [...pool].sort((a, b) => {
@@ -5149,7 +5179,7 @@ function updatePetChatSessionOptions() {
   sessions.forEach((s) => {
     const opt = document.createElement('option');
     opt.value = s.sessionId || s.id || '';
-    const stIcon = s.state === 'working' ? '?' : s.state === 'thinking' ? '??' : s.state === 'waiting' ? '?' : '??';
+    const stIcon = s.state === 'working' ? '⚡' : s.state === 'thinking' ? '💭' : s.state === 'waiting' ? '⏳' : '💤';
     if (s.state === 'working' || s.state === 'thinking') workingCount++;
     const name = s.project || s.sessionTitle || (s.sessionId ? s.sessionId.slice(-6) : 'Codex �Ự');
     opt.textContent = `${stIcon} ${name} (${s.state || 'idle'})`;

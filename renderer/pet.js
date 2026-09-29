@@ -219,6 +219,7 @@ const CHAMPION_SPINE_ANIMS = {
 
 // ������Ƶ����֧�� (֧�ֱ������ⲿ��Ƶ���������Զ���������)
 window.playPetSound = function(soundPath, volume = 1.0) {
+  if (muted || (window.isPetMuted && window.isPetMuted())) return;
   if (!soundPath) return;
   try {
     const sLower = String(soundPath).toLowerCase();
@@ -3040,6 +3041,7 @@ let blinkTimer = null;
 let transientUntil = 0;   // ����״̬��happy/error����������ʱ��
 let transientState = null;
 let muted = false;
+window.isPetMuted = () => muted;
 let skin = 'champion';
 let lastWaiting = 0;
 let lastBgZombie = 0; // ��̨���ƽ�ʬ��
@@ -4638,7 +4640,18 @@ let lastRadialMetrics = null;
 const MENU = [
   { ic: 'chart',  labelKey: 'menu.panel', act: () => window.pet.openPanel() },
   { ic: 'tune',   labelKey: 'menu.tune', act: () => toggleTunePanel() },
-  { ic: 'hand',   labelKey: 'menu.pending', badge: true, act: () => window.pet.openPanel() },
+  {
+    ic: 'hand',
+    labelKey: 'menu.pending',
+    badge: true,
+    act: () => {
+      if (typeof todoPopOpen !== 'undefined' && typeof openTodoPop === 'function') {
+        todoPopOpen ? closeTodoPop() : openTodoPop();
+      } else if (window.pet && typeof window.pet.openPanel === 'function') {
+        window.pet.openPanel();
+      }
+    },
+  },
   { ic: 'zombie', labelKey: 'menu.background', badgeBg: true, act: () => window.pet.openPanel() },
   { ic: 'doc',    labelKey: 'menu.log', act: () => window.pet.openLog() },
   { ic: 'grab',   labelKey: 'menu.loot', when: () => lootSupported, act: () => window.pet.lootCodexPet() },

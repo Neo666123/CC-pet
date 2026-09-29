@@ -1223,11 +1223,11 @@
       region.texture = texture;
 
       att.region = region;
-      att.scaleX = (typeof scaleX === "number") ? scaleX : 0.92;
-      att.scaleY = (typeof scaleY === "number") ? scaleY : 0.92;
+      att.scaleX = (typeof scaleX === "number") ? scaleX : 1.85;
+      att.scaleY = (typeof scaleY === "number") ? scaleY : 1.85;
       att.rotation = 0;
-      att.x = (typeof offsetX === "number") ? offsetX : 0;
-      att.y = (typeof offsetY === "number") ? offsetY : 96;
+      att.x = (typeof offsetX === "number") ? offsetX : -4;
+      att.y = (typeof offsetY === "number") ? offsetY : 158;
 
       const updateRegionData = () => {
         const frame = texture.frame || { x: 0, y: 0, width: texture.width || 250, height: texture.height || 150 };
@@ -1311,11 +1311,11 @@
       if (!templateAtt) return;
 
       // 正面 (down)：中心对齐，位于头顶
-      const att0 = this.createSpineRegionAttachment(templateAtt, "swap_hat-0", tex0, 0, 96, 0.92, 0.92, slot);
-      // 侧面 (side)：根据侧面视觉略微后移
-      const att1 = this.createSpineRegionAttachment(templateAtt, "swap_hat-1", tex1, -12, 102, 0.92, 0.92, slot);
-      // 背面 (up)
-      const att2 = this.createSpineRegionAttachment(templateAtt, "swap_hat-2", tex2, 0, 96, 0.92, 0.92, slot);
+      const att0 = this.createSpineRegionAttachment(templateAtt, "swap_hat-0", tex0, -4, 158, 1.85, 1.85, slot);
+      // 侧面 (side)：根据官方 scml pivot_x 0.582, pivot_y -0.142 与侧面视觉微调
+      const att1 = this.createSpineRegionAttachment(templateAtt, "swap_hat-1", tex1, -22, 168, 1.85, 1.85, slot);
+      // 背面 (up)：背面中心对齐
+      const att2 = this.createSpineRegionAttachment(templateAtt, "swap_hat-2", tex2, -4, 158, 1.85, 1.85, slot);
 
       this.hatAttachments = {
         "swap_hat-0": att0,

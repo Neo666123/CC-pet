@@ -576,8 +576,9 @@
         return;
       }
 
-      // 睡眠中轻戳：唤醒并死锁切入待机 idle
+      // 睡眠中轻戳：前两个睡眠阶段直接切到 idle，只有彻底睡死了 (阶段3) 才播放 wakeup
       if (this.sleepLevel > 0 || this.isFallingAsleep) {
+        const isDeepSleep = this.sleepLevel >= 3;
         this.clearSleepTimers();
         this.isFallingAsleep = false;
         this.sleepLevel = 0;
@@ -590,15 +591,25 @@
         this.currentBaseLoopAnim = idleAnim;
         if (typeof window.setState === "function") window.setState("idle");
 
-        try {
-          const wakeAnim = this.hasAnim("wilson/wakeup") ? "wilson/wakeup" : idleAnim;
-          this.pet.state.setAnimation(0, wakeAnim, false);
-          this.pet.state.addAnimation(0, idleAnim, true, 0);
-          this.isAnimLocked = true;
-          setTimeout(() => { this.isAnimLocked = false; }, 2600);
-        } catch (e) {}
-        if (typeof window.playPetSound === "function") window.playPetSound("assets/sounds/champion/yawning.wav");
-        if (typeof window.showPetBubble === "function") window.showPetBubble("哈啊……醒了醒了！随时听候差遣！", 2800, true);
+        if (isDeepSleep) {
+          // 只有彻底睡死了才播放 wakeup 躺地揉眼苏醒
+          try {
+            const wakeAnim = this.hasAnim("wilson/wakeup") ? "wilson/wakeup" : idleAnim;
+            this.pet.state.setAnimation(0, wakeAnim, false);
+            this.pet.state.addAnimation(0, idleAnim, true, 0);
+            this.isAnimLocked = true;
+            setTimeout(() => { this.isAnimLocked = false; }, 2600);
+          } catch (e) {}
+          if (typeof window.playPetSound === "function") window.playPetSound("assets/sounds/champion/yawning.wav");
+          if (typeof window.showPetBubble === "function") window.showPetBubble("哈啊……醒了醒了！随时听候差遣！", 2800, true);
+        } else {
+          // 前两个阶段别播 wakeup，直接平滑切回待机站姿 idle
+          try {
+            this.pet.state.setAnimation(0, idleAnim, true);
+            this.isAnimLocked = false;
+          } catch (e) {}
+          if (typeof window.showPetBubble === "function") window.showPetBubble("唔？我没睡着，只是在闭目养神！", 2200, true);
+        }
         this.scheduleNextOneShot("idle");
         return;
       }

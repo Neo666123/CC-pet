@@ -4642,10 +4642,10 @@ const MENU = [
   { ic: 'tune',   labelKey: 'menu.tune', act: () => toggleTunePanel() },
   {
     ic: 'hand',
-    labelKey: 'menu.pending',
+    labelKey: 'menu.wardrobe',
     badge: true,
     act: () => {
-      if (typeof todoPopOpen !== 'undefined' && typeof openTodoPop === 'function') {
+      if (window.ChampionSpineController && typeof window.ChampionSpineController.toggleHat === 'function') { window.ChampionSpineController.toggleHat('hat_alterguardian'); } else if (typeof todoPopOpen !== 'undefined' && typeof openTodoPop === 'function') {
         todoPopOpen ? closeTodoPop() : openTodoPop();
       } else if (window.pet && typeof window.pet.openPanel === 'function') {
         window.pet.openPanel();

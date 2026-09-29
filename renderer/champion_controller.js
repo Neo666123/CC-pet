@@ -1179,10 +1179,76 @@
       } else {
         this.workingStartTime = null;
       }
-    }
+    },
+
+    // ------------------------------------------------------------------------
+    // 更衣室与换装系统 (Wardrobe & Accessories)
+    // ------------------------------------------------------------------------
+    toggleHat(hatId = "hat_alterguardian") {
+      if (this.currentHat) {
+        this.removeHat();
+      } else {
+        this.wearHat(hatId);
+      }
+    },
+
+    wearHat(hatId = "hat_alterguardian") {
+      if (!this.pet || !window.PIXI) return;
+      this.currentHat = hatId;
+      const hatPath = "assets/wardrobe/hat_alterguardian/swap_hat/swap_hat-0.png";
+      const resolvedUrl = new URL("../" + hatPath, window.location.href).href;
+
+      if (!this.hatSprite) {
+        this.hatSprite = PIXI.Sprite.from(resolvedUrl);
+        this.hatSprite.anchor.set(0.5, 0.85);
+        this.pet.addChild(this.hatSprite);
+      } else {
+        this.hatSprite.texture = PIXI.Texture.from(resolvedUrl);
+        this.hatSprite.visible = true;
+      }
+      this.updateHatTransform();
+      if (typeof window.showPetBubble === "function") {
+        window.showPetBubble("👑 启迪王冠已加冕！天体英雄重获神格！", 3500);
+      }
+      if (typeof this.playTalking === "function") {
+        this.playTalking(1500);
+      }
+      if (typeof window.playPetSound === "function") {
+        window.playPetSound("assets/sounds/champion/talk1.wav");
+      }
+    },
+
+    removeHat() {
+      this.currentHat = null;
+      if (this.hatSprite) {
+        this.hatSprite.visible = false;
+      }
+      if (typeof window.showPetBubble === "function") {
+        window.showPetBubble("✨ 已卸下头饰", 2500);
+      }
+      if (typeof this.playTalking === "function") {
+        this.playTalking(1200);
+      }
+    },
+
+    updateHatTransform() {
+      if (!this.hatSprite || !this.hatSprite.visible || !this.pet || !this.pet.skeleton) return;
+      const sk = this.pet.skeleton;
+      const bone = sk.findBone("hat-1-internal") || sk.findBone("hat-1") || sk.findBone("head-1-internal");
+      if (!bone) return;
+      this.hatSprite.x = bone.worldX;
+      this.hatSprite.y = bone.worldY;
+      this.hatSprite.rotation = bone.getWorldRotationX() * (Math.PI / 180);
+      const bScaleX = bone.getWorldScaleX();
+      const bScaleY = bone.getWorldScaleY();
+      const baseHatScale = 0.38;
+      this.hatSprite.scale.set(bScaleX * baseHatScale, bScaleY * baseHatScale);
+    },
   };
 
   window.ChampionController = ChampionController;
+  window.ChampionSpineController = ChampionController;
+  window.toggleChampionHat = function(id) { ChampionController.toggleHat(id); };
 
   // 向后兼容适配桥接（保证旧函数调用直接安全代理到 ChampionController）
   window.playChampionTalking = function(durationMs) { ChampionController.playTalking(durationMs); };

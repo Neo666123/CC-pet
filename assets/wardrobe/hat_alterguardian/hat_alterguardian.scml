@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<spriter_data scml_version="1.0" generator="BrashMonkey Spriter" generator_version="r11">
+	<folder id="0" name="swap_hat">
+		<file id="0" name="swap_hat/swap_hat-0.png" width="251" height="147" pivot_x="0.5140457" pivot_y="-0.3442034" />
+		<file id="1" name="swap_hat/swap_hat-1.png" width="232" height="180" pivot_x="0.58200634" pivot_y="-0.14151609" />
+		<file id="2" name="swap_hat/swap_hat-2.png" width="251" height="147" pivot_x="0.5140457" pivot_y="-0.3442034" />
+		<file id="3" name="swap_hat/swap_hat-3.png" width="254" height="171" pivot_x="0.491931" pivot_y="0.2122837" />
+	</folder>
+	<entity id="0" name="alterguardianhat">
+		<animation id="0" name="anim" length="132" interval="33">
+			<mainline>
+				<key id="0" time="0">
+					<object_ref id="0" timeline="0" key="0" z_index="0" name="on_ground" />
+				</key>
+				<key id="1" time="33">
+					<object_ref id="0" timeline="0" key="1" z_index="0" name="on_ground" />
+				</key>
+				<key id="2" time="66">
+					<object_ref id="0" timeline="0" key="2" z_index="0" name="on_ground" />
+				</key>
+				<key id="3" time="99">
+					<object_ref id="0" timeline="0" key="3" z_index="0" name="on_ground" />
+				</key>
+				<key id="4" time="132">
+					<object_ref id="0" timeline="0" key="4" z_index="0" name="on_ground" />
+				</key>
+			</mainline>
+			<timeline id="0" name="on_ground">
+				<key id="0" time="0" spin="0" curve_type="instant">
+					<object folder="0" file="3" x="-0.65" y="0.7" scale_x="0.8019867" scale_y="0.8019867" angle="0" />
+				</key>
+				<key id="1" time="33" spin="0" curve_type="instant">
+					<object folder="0" file="3" x="-0.65" y="0.7" scale_x="0.8019867" scale_y="0.8019867" angle="0" />
+				</key>
+				<key id="2" time="66" spin="0" curve_type="instant">
+					<object folder="0" file="3" x="-0.65" y="0.7" scale_x="0.8019867" scale_y="0.8019867" angle="0" />
+				</key>
+				<key id="3" time="99" spin="0" curve_type="instant">
+					<object folder="0" file="3" x="-0.65" y="0.7" scale_x="0.8019867" scale_y="0.8019867" angle="0" />
+				</key>
+				<key id="4" time="132" spin="0" curve_type="instant">
+					<object folder="0" file="3" x="-0.65" y="0.7" scale_x="0.8019867" scale_y="0.8019867" angle="0" />
+				</key>
+			</timeline>
+		</animation>
+	</entity>
+</spriter_data>

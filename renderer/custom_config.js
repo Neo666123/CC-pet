@@ -288,15 +288,18 @@ window.PET_CONFIG = {
     },
 
     talking: {
-      baseLoops: ['wilson/dial_loop'],
+      baseLoops: [
+        { anim: 'wilson/acting_idle1', weight: 5 },
+        { anim: 'wilson/idle_loop_down', weight: 5 }
+      ],
       clickSwitchLoopChance: 0,
-      playOneShotOnEnter: false,
+      playOneShotOnEnter: true,
       oneShotInterval: [0, 0],
       comboChance: 0,
       comboCount: [1, 1],
-      oneShotPool: ['wilson/acting_1', 'wilson/acting_2'],
-      treatLoopAsOneShot: false,
-      oneShotDuration: [2.0, 3.0]
+      oneShotPool: ['wilson/dial_loop', 'wilson/acting_1', 'wilson/acting_2'],
+      treatLoopAsOneShot: true,
+      oneShotDuration: [1.8, 2.5]
     },
 
     loafing: {

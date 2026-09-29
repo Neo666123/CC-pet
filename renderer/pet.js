@@ -3095,6 +3095,11 @@ const STATE_WORDS = (window.OctoStates && window.OctoStates.RENDER_STATE_WORDS) 
 function setState(s) {
   const wasSleeping = state === 'sleeping';
   const wasWorking = (state === 'working' || state === 'thinking');
+  if (s !== 'sleeping' && s !== 'idle') {
+    isFallingAsleep = false;
+    sleepLevel = 0;
+    clearSleepSequence();
+  }
   if (skin === 'champion' && isChampionDead()) {
     // �������ɣ�װ�������ڼ䣬��ǰ���ι���ȫ���Թ��������ڹ����м临�
     return;
@@ -3599,6 +3604,14 @@ bubbleDismiss.addEventListener('click', (e) => {
 
 bubble.addEventListener('click', (e) => {
   if (e.target.closest('#bubble-dismiss') || e.target.closest('#bubble-toggle')) return;
+  if (bubbleMode === 'ending' && endingMessages && endingMessages.size > 0) {
+    const entries = endingEntries();
+    const targetSessionId = entries.length > 0 ? entries[0].sessionId : '';
+    if (targetSessionId && window.pet && typeof window.pet.focusSession === 'function') {
+      window.pet.focusSession(targetSessionId);
+      return;
+    }
+  }
   if (window.pet) {
     if (AGENT === 'codex' && typeof window.pet.launchCodex === 'function') {
       window.pet.launchCodex();
@@ -4897,6 +4910,13 @@ setInterval(reportPetVisualBounds, 3000);
 
 
 function getActiveOrLatestSessionId() {
+  // 优先级 1：若当前结算完成气泡卡片正显示在屏幕上，精准定位至该卡片关联的会话！
+  if (bubbleMode === 'ending' && endingMessages && endingMessages.size > 0) {
+    const entries = endingEntries();
+    if (entries.length > 0 && entries[0].sessionId) {
+      return entries[0].sessionId;
+    }
+  }
   if (!lastStats || !Array.isArray(lastStats.sessions) || lastStats.sessions.length === 0) return '';
   const candidatePool = typeof isVisibleSession === 'function'
     ? lastStats.sessions.filter(isVisibleSession)

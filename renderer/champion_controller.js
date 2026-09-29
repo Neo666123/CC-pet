@@ -310,6 +310,15 @@
       if (s === 'working' || s === 'juggling' || s === 'thinking') {
         this.isAnimLocked = false;
       }
+
+      // 只要进入非睡眠活跃状态，立即彻底清除幽灵睡眠和相关定时器
+      if (s !== 'sleeping' && s !== 'idle') {
+        this.clearSleepTimers();
+        this.isFallingAsleep = false;
+        this.sleepLevel = 0;
+        this.wakeLockUntil = Date.now() + 300000;
+        if (typeof window.setPetWakeLock === 'function') window.setPetWakeLock(300000);
+      }
       if (this.currentTriggerState === s && !forceEnter) {
         const curTrack = this.pet && this.pet.state ? this.pet.state.getCurrent(0) : null;
         const curAnimName = curTrack && curTrack.animation ? curTrack.animation.name : '';
@@ -319,8 +328,8 @@
         return;
       }
 
-      // 睡眠保护：正在睡眠时，空闲待机 idle 绝不准打断覆盖睡眠！
-      if ((this.sleepLevel > 0 || this.isFallingAsleep || this.currentTriggerState === "sleeping") && s === "idle" && !forceEnter) {
+      // 睡眠保护：当前确为深度睡眠时，空闲待机 idle 不覆盖打断；若此前不是 sleeping 状态，绝不准拦截待机！
+      if (this.currentTriggerState === 'sleeping' && (this.sleepLevel > 0 || this.isFallingAsleep) && s === 'idle' && !forceEnter) {
         return;
       }
       this.currentTriggerState = s;
@@ -332,7 +341,9 @@
 
             // 动态推导当次工作/跳舞循环动画
       let finalLoops = cfg ? cfg.baseLoops : null;
-      if (s === 'working' && cfg) {
+      if (s === 'talking') {
+        finalLoops = [{ anim: 'wilson/acting_idle1', weight: 5 }, { anim: 'wilson/idle_loop_down', weight: 5 }];
+      } else if (s === 'working' && cfg) {
         if (this.isDanceMode) {
           finalLoops = (cfg.danceLoops && cfg.danceLoops.length > 0) 
             ? cfg.danceLoops 

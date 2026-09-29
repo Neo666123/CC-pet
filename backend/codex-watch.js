@@ -191,8 +191,8 @@ function itemText(item) {
 
 function fileSessionId(fp, metaId) {
   if (metaId) return String(metaId);
-  // rollout-2026-07-11T04-50-16-<uuid>.jsonl → uuid 兜底
-  const m = /rollout-.*-([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\.jsonl$/i.exec(fp);
+  // rollout-2026-07-11T04-50-16-<uuid>.jsonl or ..._<page_uuid>.jsonl → 优先匹配主 session uuid
+  const m = /rollout-.*-([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(?:_[0-9a-f-]+)?\.jsonl$/i.exec(fp);
   return m ? m[1] : path.basename(fp, '.jsonl');
 }
 
@@ -365,6 +365,8 @@ function createCodexWatch(deps) {
         if (e) out.push(e);
       }
     }
+    // 关键：按文件修改时间正序排列（旧文件在前，最新文件在后），确保长会话新分页能够覆盖旧分页数据！
+    out.sort((a, b) => (a.mtimeMs || 0) - (b.mtimeMs || 0));
     return out;
   }
 

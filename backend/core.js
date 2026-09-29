@@ -258,8 +258,35 @@ function createCore(options = {}) {
   // backfillFromTranscripts 一样直接入库，不走 updateSession —— 不触发欢迎、
   // 庆祝等 activity 事件，启动时把「已存在的会话」原样摆进列表。
   function seedSession(fields) {
-    if (!fields || !fields.id || sessions.has(fields.id)) return null;
+    if (!fields || !fields.id) return null;
     const now = Date.now();
+    const existing = sessions.get(fields.id);
+    if (existing) {
+      let changed = false;
+      const newUpdated = Number(fields.updatedAt) || now;
+      if (newUpdated > (existing.updatedAt || 0)) {
+        existing.updatedAt = newUpdated;
+        changed = true;
+        if (fields.state) existing.state = fields.state;
+        if (fields.transcriptPath) existing.transcriptPath = fields.transcriptPath;
+        if (fields.contextUsage) existing.contextUsage = fields.contextUsage;
+        if (fields.codexChoice !== undefined) existing.codexChoice = fields.codexChoice;
+      }
+      if (fields.sessionTitle && (!existing.sessionTitle || existing.sessionTitle !== fields.sessionTitle)) {
+        existing.sessionTitle = fields.sessionTitle;
+        changed = true;
+      }
+      if (fields.cwd && !existing.cwd) {
+        existing.cwd = fields.cwd;
+        changed = true;
+      }
+      if (fields.model && !existing.model) {
+        existing.model = fields.model;
+        changed = true;
+      }
+      if (changed) onDirty();
+      return existing;
+    }
     const s = {
       state: 'idle', recentEvents: [], createdAt: now, updatedAt: now,
       ...fields,

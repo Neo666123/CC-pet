@@ -3606,11 +3606,6 @@ bubbleDismiss.addEventListener('click', (e) => {
   endingMessages.clear();
   endingExpanded = false;
   hideBubble(true);
-  // 仅当后台确实有正在思考/执行的任务时才联动跳转；无任务时纯粹关闭气泡，绝不跳转！
-  const runningSid = getRunningSessionId();
-  if (runningSid && window.pet && typeof window.pet.focusSession === 'function') {
-    window.pet.focusSession(runningSid);
-  }
 });
 
 bubble.addEventListener('click', (e) => {

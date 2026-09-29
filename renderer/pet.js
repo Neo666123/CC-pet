@@ -3419,12 +3419,12 @@ function renderEndingBubble() {
   bubbleHead.classList.remove('hidden');
   bubbleProject.textContent = latest.project || latest.agent || t('sess.fallbackName');
   bubbleDismiss.setAttribute('aria-label', t('bub.dismissEndings'));
-  setBubbleText(`?? ${latest.text}`);
+  setBubbleText(`💬 ${latest.text}`);
   bubbleStack.innerHTML = '';
 
   if (multiple) {
     bubbleCount.textContent = t('bub.conversationCount', { count: entries.length });
-    bubbleChevron.textContent = endingExpanded ? '?' : '?';
+    bubbleChevron.textContent = endingExpanded ? '⌃' : '⌄';
     bubbleToggle.setAttribute('aria-expanded', endingExpanded ? 'true' : 'false');
     bubbleToggle.setAttribute('aria-label', t(endingExpanded ? 'bub.collapseEndings' : 'bub.expandEndings'));
     bubbleToggle.classList.remove('hidden');
@@ -3443,7 +3443,7 @@ function renderEndingBubble() {
       project.textContent = entry.project || entry.agent || t('sess.fallbackName');
       const text = document.createElement('span');
       text.className = 'bubble-ending-text';
-      text.textContent = `?? ${entry.text}`;
+      text.textContent = `💬 ${entry.text}`;
       item.appendChild(project);
       item.appendChild(text);
       bubbleStack.appendChild(item);
@@ -3463,6 +3463,8 @@ function renderEndingBubble() {
 }
 
 function rememberEnding(ev, deferDisplay = false) {
+  wakeLockUntil = Math.max(wakeLockUntil, Date.now() + 300000);
+  if (typeof window.setPetWakeLock === 'function') window.setPetWakeLock(300000);
   const text = String(ev && ev.text || '').trim();
   if (!text) return false;
   const key = endingKey(ev);
@@ -4115,9 +4117,8 @@ function applyStats(s) {
     setState('thinking');
   } else if (s.loafingCount > 0) {
     setState('loafing'); // ���߼�϶����һ����������һ�� �� ����
-  } else if (s.idleMs == null || s.idleMs > IDLE_SLEEP_MS) {
-    // idleMs=null ��ʾ���޻�Ծ�Ự�������ڴ��Ѻ��ķ���˯�������ڣ����ִ�������
-    if (Date.now() < wakeLockUntil) {
+  } else if (s.idleMs != null && s.idleMs > IDLE_SLEEP_MS) {
+    if (Date.now() < wakeLockUntil || (endingMessages && endingMessages.size > 0) || bubbleMode === 'ending') {
       setState('idle');
     } else {
       setState('sleeping');

@@ -185,6 +185,18 @@
           attPath.includes("swap_book_fx")
         );
 
+        if (slotName === "hat-1") {
+          if (this.currentHat && this.hatAttachments) {
+            if (!slot.attachment) {
+              slot.attachment = this.hatAttachments["swap_hat-0"];
+            }
+            if (this.pet && this.pet.slotContainers && this.pet.slotContainers[i]) {
+              this.pet.slotContainers[i].visible = true;
+            }
+          }
+          continue;
+        }
+
         if (isPureWeaponSlot || isWeaponAttachment) {
           slot.attachment = null;
           if (this.pet && this.pet.slotContainers && this.pet.slotContainers[i]) {
@@ -1182,7 +1194,7 @@
     },
 
     // ------------------------------------------------------------------------
-    // 更衣室与换装系统 (Wardrobe & Accessories)
+    // 更衣室与换装系统 (Wardrobe & Accessories) —— 原生 Spine 插槽 Attachment 换装
     // ------------------------------------------------------------------------
     toggleHat(hatId = "hat_alterguardian") {
       if (this.currentHat) {
@@ -1192,21 +1204,152 @@
       }
     },
 
-    wearHat(hatId = "hat_alterguardian") {
-      if (!this.pet || !window.PIXI) return;
-      this.currentHat = hatId;
-      const hatPath = "assets/wardrobe/hat_alterguardian/swap_hat/swap_hat-0.png";
-      const resolvedUrl = new URL("../" + hatPath, window.location.href).href;
+    // 创建或克隆原生 RegionAttachment 并挂载到 Spine 插槽
+    createSpineRegionAttachment(origAtt, name, texture, offsetX, offsetY, scaleX, scaleY, slot) {
+      if (!texture || !origAtt) return null;
+      // 基于原有 RegionAttachment 原型克隆，继承所有核心算法与方法
+      const att = Object.assign(Object.create(Object.getPrototypeOf(origAtt)), origAtt);
+      att.name = name;
+      att.offset = new Float32Array(8);
+      att.uvs = new Float32Array(8);
 
-      if (!this.hatSprite) {
-        this.hatSprite = PIXI.Sprite.from(resolvedUrl);
-        this.hatSprite.anchor.set(0.5, 0.5);
-        this.pet.addChild(this.hatSprite);
-      } else {
-        this.hatSprite.texture = PIXI.Texture.from(resolvedUrl);
-        this.hatSprite.visible = true;
+      let region = null;
+      if (window.PIXI && window.PIXI.spine && typeof window.PIXI.spine.TextureRegion === "function") {
+        try {
+          region = new window.PIXI.spine.TextureRegion();
+        } catch (e) {}
       }
-      this.updateHatTransform();
+      if (!region) region = {};
+      region.texture = texture;
+
+      att.region = region;
+      att.scaleX = (typeof scaleX === "number") ? scaleX : 0.92;
+      att.scaleY = (typeof scaleY === "number") ? scaleY : 0.92;
+      att.rotation = 0;
+      att.x = (typeof offsetX === "number") ? offsetX : 0;
+      att.y = (typeof offsetY === "number") ? offsetY : 96;
+
+      const updateRegionData = () => {
+        const frame = texture.frame || { x: 0, y: 0, width: texture.width || 250, height: texture.height || 150 };
+        const baseTex = texture.baseTexture || { width: frame.width, height: frame.height };
+        const orig = texture.orig || frame;
+        if (baseTex.width && baseTex.height) {
+          region.u = frame.x / baseTex.width;
+          region.v = frame.y / baseTex.height;
+          region.u2 = (frame.x + frame.width) / baseTex.width;
+          region.v2 = (frame.y + frame.height) / baseTex.height;
+          region.width = orig.width || frame.width;
+          region.height = orig.height || frame.height;
+          region.originalWidth = region.width;
+          region.originalHeight = region.height;
+          region.offsetX = 0;
+          region.offsetY = 0;
+          region.rotate = false;
+
+          att.width = region.width;
+          att.height = region.height;
+
+          if (typeof att.setRegion === "function") {
+            att.setRegion(region);
+          } else {
+            att.uvs[0] = region.u;
+            att.uvs[1] = region.v2;
+            att.uvs[2] = region.u;
+            att.uvs[3] = region.v;
+            att.uvs[4] = region.u2;
+            att.uvs[5] = region.v;
+            att.uvs[6] = region.u2;
+            att.uvs[7] = region.v2;
+          }
+          if (typeof att.updateOffset === "function") {
+            att.updateOffset();
+          }
+          if (slot && slot.currentSprite) {
+            slot.currentSprite.region = null;
+            slot.currentSprite.attachment = null;
+          }
+        }
+      };
+
+      if (texture.baseTexture && !texture.baseTexture.hasLoaded) {
+        texture.baseTexture.once("loaded", updateRegionData);
+      } else {
+        updateRegionData();
+      }
+
+      return att;
+    },
+
+    wearHat(hatId = "hat_alterguardian") {
+      if (!this.pet || !this.pet.skeleton || !window.PIXI) return;
+      const sk = this.pet.skeleton;
+      const slotIndex = sk.findSlotIndex("hat-1");
+      if (slotIndex === -1) {
+        console.warn("[ChampionController] hat-1 slot not found in skeleton");
+        return;
+      }
+      const slot = sk.slots[slotIndex];
+      const defaultSkin = sk.data && sk.data.defaultSkin;
+      if (!defaultSkin) return;
+
+      // 1. 备份原始 Attachment（用于脱下时复原）
+      if (!this.origHatAttachments) {
+        this.origHatAttachments = {
+          "swap_hat-0": defaultSkin.getAttachment(slotIndex, "swap_hat-0"),
+          "swap_hat-1": defaultSkin.getAttachment(slotIndex, "swap_hat-1"),
+          "swap_hat-2": defaultSkin.getAttachment(slotIndex, "swap_hat-2")
+        };
+      }
+
+      // 2. 加载切片纹理并构建 3 个朝向的原生 Attachment
+      const basePath = "assets/wardrobe/" + hatId + "/swap_hat/";
+      const tex0 = PIXI.Texture.from(new URL("../" + basePath + "swap_hat-0.png", window.location.href).href);
+      const tex1 = PIXI.Texture.from(new URL("../" + basePath + "swap_hat-1.png", window.location.href).href);
+      const tex2 = PIXI.Texture.from(new URL("../" + basePath + "swap_hat-2.png", window.location.href).href);
+
+      const templateAtt = this.origHatAttachments["swap_hat-0"] || sk.getAttachment(slotIndex, "swap_hat-0");
+      if (!templateAtt) return;
+
+      // 正面 (down)：中心对齐，位于头顶
+      const att0 = this.createSpineRegionAttachment(templateAtt, "swap_hat-0", tex0, 0, 96, 0.92, 0.92, slot);
+      // 侧面 (side)：根据侧面视觉略微后移
+      const att1 = this.createSpineRegionAttachment(templateAtt, "swap_hat-1", tex1, -12, 102, 0.92, 0.92, slot);
+      // 背面 (up)
+      const att2 = this.createSpineRegionAttachment(templateAtt, "swap_hat-2", tex2, 0, 96, 0.92, 0.92, slot);
+
+      this.hatAttachments = {
+        "swap_hat-0": att0,
+        "swap_hat-1": att1,
+        "swap_hat-2": att2
+      };
+
+      // 3. 注册到 defaultSkin 和当前 skin
+      defaultSkin.setAttachment(slotIndex, "swap_hat-0", att0);
+      defaultSkin.setAttachment(slotIndex, "swap_hat-1", att1);
+      defaultSkin.setAttachment(slotIndex, "swap_hat-2", att2);
+      if (sk.skin && sk.skin !== defaultSkin) {
+        sk.skin.setAttachment(slotIndex, "swap_hat-0", att0);
+        sk.skin.setAttachment(slotIndex, "swap_hat-1", att1);
+        sk.skin.setAttachment(slotIndex, "swap_hat-2", att2);
+      }
+
+      // 4. 应用到当前插槽并强制重置渲染缓存
+      const curAttName = (slot.attachment && slot.attachment.name) || "swap_hat-0";
+      const targetAtt = this.hatAttachments[curAttName] || att0;
+      slot.setAttachment(targetAtt);
+
+      if (slot.currentSprite) {
+        slot.currentSprite.region = null;
+        slot.currentSprite.attachment = null;
+        slot.currentSprite.visible = true;
+        slot.currentSprite.renderable = true;
+      }
+      if (this.pet.slotContainers && this.pet.slotContainers[slotIndex]) {
+        this.pet.slotContainers[slotIndex].visible = true;
+      }
+
+      this.currentHat = hatId;
+
       if (typeof window.showPetBubble === "function") {
         window.showPetBubble("👑 启迪王冠已加冕！天体英雄重获神格！", 3500);
       }
@@ -1219,41 +1362,44 @@
     },
 
     removeHat() {
-      this.currentHat = null;
-      if (this.hatSprite) {
-        this.hatSprite.visible = false;
+      if (!this.pet || !this.pet.skeleton) {
+        this.currentHat = null;
+        return;
       }
+      const sk = this.pet.skeleton;
+      const slotIndex = sk.findSlotIndex("hat-1");
+      const slot = (slotIndex !== -1 && sk.slots) ? sk.slots[slotIndex] : null;
+      const defaultSkin = sk.data && sk.data.defaultSkin;
+
+      // 恢复 defaultSkin 中的原始 Attachment
+      if (defaultSkin && this.origHatAttachments && slotIndex !== -1) {
+        if (this.origHatAttachments["swap_hat-0"]) defaultSkin.setAttachment(slotIndex, "swap_hat-0", this.origHatAttachments["swap_hat-0"]);
+        if (this.origHatAttachments["swap_hat-1"]) defaultSkin.setAttachment(slotIndex, "swap_hat-1", this.origHatAttachments["swap_hat-1"]);
+        if (this.origHatAttachments["swap_hat-2"]) defaultSkin.setAttachment(slotIndex, "swap_hat-2", this.origHatAttachments["swap_hat-2"]);
+        if (sk.skin && sk.skin !== defaultSkin) {
+          if (this.origHatAttachments["swap_hat-0"]) sk.skin.setAttachment(slotIndex, "swap_hat-0", this.origHatAttachments["swap_hat-0"]);
+          if (this.origHatAttachments["swap_hat-1"]) sk.skin.setAttachment(slotIndex, "swap_hat-1", this.origHatAttachments["swap_hat-1"]);
+          if (this.origHatAttachments["swap_hat-2"]) sk.skin.setAttachment(slotIndex, "swap_hat-2", this.origHatAttachments["swap_hat-2"]);
+        }
+      }
+
+      if (slot) {
+        const origAtt = (this.origHatAttachments && this.origHatAttachments["swap_hat-0"]) || null;
+        slot.setAttachment(origAtt);
+        if (slot.currentSprite) {
+          slot.currentSprite.region = null;
+          slot.currentSprite.attachment = null;
+        }
+      }
+
+      this.currentHat = null;
+
       if (typeof window.showPetBubble === "function") {
         window.showPetBubble("✨ 已卸下头饰", 2500);
       }
       if (typeof this.playTalking === "function") {
         this.playTalking(1200);
       }
-    },
-
-    updateHatTransform() {
-      if (!this.hatSprite || !this.hatSprite.visible || !this.pet || !this.pet.skeleton) return;
-      const sk = this.pet.skeleton;
-      // 优先获取头发中心骨骼 hair-1，若无则取 hat-1
-      const bone = sk.findBone("hat-1-internal") || sk.findBone("hat-1") || sk.findBone("head-1-internal");
-      if (!bone) return;
-
-      const rotRad = bone.getWorldRotationX() * (Math.PI / 180);
-      this.hatSprite.rotation = rotRad;
-
-      const bScaleX = bone.getWorldScaleX();
-      const bScaleY = bone.getWorldScaleY();
-      // 适度放大，让王冠更加有神威
-      const baseHatScale = 0.52;
-      this.hatSprite.scale.set(bScaleX * baseHatScale, bScaleY * baseHatScale);
-
-      // 在骨骼旋转方向上，沿头顶法线向上推 88 像素（正好从胸口下巴移动到小天体额头/眼睛上方）
-      const liftDistance = 88;
-      // 骨骼世界坐标系中，沿骨骼垂直方向位移
-      const cos = Math.cos(rotRad);
-      const sin = Math.sin(rotRad);
-      this.hatSprite.x = bone.worldX + sin * liftDistance;
-      this.hatSprite.y = bone.worldY - cos * liftDistance;
     },
   };
 
